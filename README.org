@@ -18,7 +18,7 @@ A program used to manage programs in servers.
 #+BEGIN_SRC bash
 $ cd ~
 $ git clone "https://www.github.com/FeistyKit/serverman" .serverman
-$ python3 .serverman/serverman install
+$ python3 .serverman/serverman.py install
 #+END_SRC
 
 Warning: THE PROGRAM IS NOT NEARLY FINISHED YET! PLEASE DO NOT USE THIS YET!
