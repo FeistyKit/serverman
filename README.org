@@ -1,0 +1,24 @@
+#+TITLE: Serverman
+
+A program used to manage programs in servers.
+
+* Goals [0/3]
+- [ ] Server-client program
+- [ ] Run server on boot
+- [ ] Client [0/5]:
+  - [ ] Install option
+  - [ ] Communicate with server
+  - [ ] Graph for seeing ram usage
+    - Use external program like htop?
+  - [ ] Command to update server
+  - [ ] Command to update and run programs
+
+
+* Usage
+#+BEGIN_SRC bash
+$ cd ~
+$ git clone "https://www.github.com/FeistyKit/serverman" .serverman
+$ python3 .serverman/serverman install
+#+END_SRC
+
+Warning: THE PROGRAM IS NOT NEARLY FINISHED YET! PLEASE DO NOT USE THIS YET!
