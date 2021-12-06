@@ -2,8 +2,7 @@
 
 # The server of the program
 
-import zerorpc, argparse, os, json, pathlib, logging
-from typing import Optional
+import zerorpc, argparse, os, json, pathlib, logging, yaml, shlex, subprocess
 from dataclasses import dataclass
 
 # PYTHON DEPENDENCIES: zerorpc, pyyaml
@@ -13,7 +12,7 @@ parser = argparse.ArgumentParser(description="The server part of serverman. THIS
 parser.add_argument('dir', type=str, nargs=1)
 parser.add_argument('--progs-to-run', type=str, nargs="*", default=[])
 parser.add_argument('--progs-to-not-run', type=str, nargs="*", default=[])
-parser.add_argument('--no-auto-configs', type=bool, default=False, const=True, action='store_const')
+parser.add_argument('--no-auto-configs', default=False, const=True, action='store_const')
 args = parser.parse_args()
 
 os.chdir(args.dir)
@@ -31,15 +30,17 @@ class ServerMan():
         pathlib.Path("data.json").touch()
         with open("data.json", "r") as f:
             try:
-                self.progs = json.loads(f.read())
-                logging.info(f"Read {len(self.progs)} items from data.json!")
+                self.prog_info = json.loads(f.read())
+                logging.info("Read %s items from data.json!", len(self.prog_info))
             except Exception:
-                logging.error(f"Could not parse `data.json`! Continuing with empty program list...")
+                logging.error("Could not parse `data.json`! Continuing with empty program list...")
+        self.progs: list[tuple[str, subprocess.Popen]] = []
 
     # Run all programs
     # TODOO: run_all_progs
-    def run_all_progs(self, log):
-        pass
+    def run_all_progs(self):
+        for name, path in self.prog_info.items():
+            self.run_prog(name, path)
 
     # run the programs specified to be run
     # TODOO: run only some programs
@@ -51,10 +52,27 @@ class ServerMan():
     def run_progs_excluding(self, to_not_run):
         pass
 
-def run_prog(name: str, path: str):
-    if not dexists(path):
-        logging.error(f"Could not open directory for `{name}`! Perhaps it was deleted?")
-        return
+    def run_prog(self, name: str, path: str):
+        if not dexists(path):
+            logging.error("Could not open directory for `%s`! Perhaps it was deleted?", name)
+            return
+        os.chdir(path)
+        if not fexists(".serverman.yml"):
+            logging.error("Could not find .serverman.yml for project `%s`", name)
+            return
+        content = None
+        with open('.serverman.yml', 'r') as f:
+            try:
+                content = yaml.safe_load(f.read())
+            except Exception:
+                logging.error("Could not parse .serverman.yml for program `%s`", name)
+                return
+        command = shlex.split(content['execut_command'])
+        with subprocess.Popen(command) as p:
+            self.progs.append((name, p))
+
+
+
 
 # Prepare the logging file
 def prepare_logging():

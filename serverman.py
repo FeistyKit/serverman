@@ -1,8 +1,18 @@
 #!/usr/bin/env python
 
-import zerorpc, os, re
+import zerorpc, os, re, pathlib
+from typing import Optional
+from dataclasses import dataclass
 
 HOME_DIR = os.environ['HOME']
+
+# If file exists
+def fexists(path: str) -> bool:
+    return pathlib.Path(path).is_file()
+
+# if dire exists
+def dexists(path: str) -> bool:
+    return pathlib.Path(path).is_dir()
 
 class ServerManager(object):
     pass
@@ -20,7 +30,7 @@ def generate_config_file(path: str, lang_type: Optional[str] =None):
 class ProjInfo:
     build_command: Optional[str]
     proj_name: Optional[str]
-    execut_path: Optional[str] # path to the executable
+    execut_command: Optional[str] # path to the executable
 
 # Find the command to run the project
 # Assumes that it is already in the project directory
@@ -30,18 +40,20 @@ def find_proj_info(lang_type: Optional[str]) -> ProjInfo:
         'Cargo.toml': rust_proj_info()
     }
     if lang_type is not None:
-        return langs.get(lang_type) if langs.get(lang_type) is not None else ProjInfo(build_command = None, proj_name = None, execut_path = None)
+        return langs.get(lang_type) if langs.get(lang_type) is not None else ProjInfo(build_command = None, proj_name = None, execut_command = None)
     for file, info in langs.items():
         if fexists(file):
             return info
-    return ProjInfo(build_command = None, proj_name = None, execut_path = None)
+    return ProjInfo(build_command = None, proj_name = None, execut_command = None)
 
 def rust_proj_info() -> ProjInfo:
     build_command = 'cargo build --release'
     toml_contents = None
     with open('Cargo.toml', 'r') as f:
         toml_contents = f.read()
-    result = toml_contents.search("^name = \\\"(.*)\\\"")
+    result = re.search("^name = \\\"(.*)\\\"", toml_contents)
+    if result is None:
+        return ProjInfo(build_command = None, proj_name = None, execut_command = None)
     proj_name = result.group(1)
-    execut_path = "target/release/" + proj_name
-    return ProjInfo(build_command = build_command, proj_name = proj_name, execut_path = execut_path)
+    execut_command = "target/release/" + proj_name
+    return ProjInfo(build_command = build_command, proj_name = proj_name, execut_command = execut_command)
