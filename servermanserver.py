@@ -4,9 +4,10 @@
 
 import zerorpc, argparse, os, json, pathlib, logging
 from typing import Optional
+from dataclasses import dataclass
 
 # PYTHON DEPENDENCIES: zerorpc, pyyaml
-# DEPENDS UPON: zip
+# DEPENDS UPON: tar, gzip
 
 parser = argparse.ArgumentParser(description="The server part of serverman. THIS PROGRAM IS NOT MEANT FOR HUMAN USE: PLEASE USE THE OTHER PROGRAM IN THE REPO.")
 parser.add_argument('dir', type=str, nargs=1)
@@ -25,7 +26,7 @@ def fexists(path: str) -> bool:
 def dexists(path: str) -> bool:
     return pathlib.Path(path).is_dir()
 
-class ServerMan(object):
+class ServerMan():
     def __init__(self):
         pathlib.Path("data.json").touch()
         with open("data.json", "r") as f:
@@ -54,25 +55,6 @@ def run_prog(name: str, path: str):
     if not dexists(path):
         logging.error(f"Could not open directory for `{name}`! Perhaps it was deleted?")
         return
-
-# detect the type of project and automatically make a config file for it
-# TODO: customizable default yaml
-def generate_config_file(path: str, lang_type: Optional[str] =None):
-    yaml = ""
-    with open(path, "w") as f:
-        f.write("# this file was generated automatically by serverman. <https://www.github.com/FeistyKit/serverman> Modify it as you wish!")
-
-# Find the command to run the project
-# Assumes that it is already in the project directory
-def find_build_command(lang_type: Optional[str]) -> Optional[str]:
-    if lang_type is not None:
-        # TODOOOOOOOO: what to do if given language type for build command generation
-        return None
-    else:
-        # I might clean this up later but I don't really care
-        if fexists("Cargo.toml"):
-                return "cargo build --release "
-        return None
 
 # Prepare the logging file
 def prepare_logging():
