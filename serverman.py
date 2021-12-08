@@ -57,3 +57,9 @@ def rust_proj_info() -> ProjInfo:
     proj_name = result.group(1)
     execut_command = "target/release/" + proj_name
     return ProjInfo(build_command = build_command, proj_name = proj_name, execut_command = execut_command)
+
+c = zerorpc.Client()
+c.connect("tcp://127.0.0.1:5999")
+# c.run_all_progs()
+c.finish(3)
+sys.exit(0)

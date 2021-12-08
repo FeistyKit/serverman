@@ -2,7 +2,7 @@
 
 # The server of the program
 
-import zerorpc, argparse, os, json, pathlib, logging, yaml, shlex, subprocess
+import zerorpc, argparse, os, json, pathlib, logging, yaml, shlex, subprocess, sys, time, signal
 from dataclasses import dataclass
 
 # PYTHON DEPENDENCIES: zerorpc, pyyaml
@@ -15,7 +15,7 @@ parser.add_argument('--progs-to-not-run', type=str, nargs="*", default=[])
 parser.add_argument('--no-auto-configs', default=False, const=True, action='store_const')
 args = parser.parse_args()
 
-os.chdir(args.dir)
+os.chdir(args.dir[0])
 
 # If file exists
 def fexists(path: str) -> bool:
@@ -35,12 +35,19 @@ class ServerMan():
             except Exception:
                 logging.error("Could not parse `data.json`! Continuing with empty program list...")
         self.progs: list[tuple[str, subprocess.Popen]] = []
+        signal.signal(signal.SIGTERM, self.signalhandler)
+        signal.signal(signal.SIGINT, self.signalhandler)
+
+    # arg1 and arg2 are not used
+    def signalhandler(self, arg1, arg2):
+        self.finish(1)
 
     # Run all programs
     # TODOO: run_all_progs
     def run_all_progs(self):
         for name, path in self.prog_info.items():
             self.run_prog(name, path)
+            print("Ran all programs!")
 
     # run the programs specified to be run
     # TODOO: run only some programs
@@ -51,6 +58,29 @@ class ServerMan():
     # TODOO: run programs excluding
     def run_progs_excluding(self, to_not_run):
         pass
+
+    # TODOO: Implement this
+    # Update all programs with git
+    def update_all_progs(self):
+        pass
+
+    # Accepts the time to wait for proteins
+    # Sends sigterm to all programs until they all finish or time is up, then kills them all
+    def finish(self, wait: int):
+        start_time = time.time()
+        for _, prog in self.progs:
+            prog.terminate()
+        while time.time() - start_time < wait:
+            if all(r.poll() is not None for _, r in self.progs): # all have finished successfully
+                logging.info("Shut down successfully!")
+                logging.shutdown()
+                sys.exit(0)
+            time.sleep(1)
+        for name, unresponding_prog in self.progs:
+            if unresponding_prog.poll() is not None:
+                logging.error("%s did not shutdown after %d seconds! Sending SIGKILL signal!", name, wait)
+                logging.shutdown()
+                sys.exit(0)
 
     def run_prog(self, name: str, path: str):
         if not dexists(path):
@@ -73,11 +103,16 @@ class ServerMan():
 
 
 
-
 # Prepare the logging file
 def prepare_logging():
     if fexists("latest.log"):
         tim = os.path.getmtime("latest.log")
-        os.system(["tar", "-cvf", f"{tim}.tar.gz", "latest.log"])
+        subprocess.run(["tar", "-cvf", "--remove-files", f"{tim}.tar.gz", "latest.log"])
+        os.remove("latest.log")
     assert not fexists("latest.log"), "Logfile should not exist!"
     logging.basicConfig(filename='latest.log', encoding='utf-8', level=logging.DEBUG)
+
+prepare_logging()
+s = zerorpc.Server(ServerMan())
+s.bind("tcp://0.0.0.0:5999")
+s.run()
