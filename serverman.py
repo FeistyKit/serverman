@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
-import zerorpc, os, re, pathlib, sys, argparse, yaml
+
+from time import sleep
+import zerorpc, os, re, pathlib, sys, argparse, yaml, subprocess
+
 from typing import Optional
 from dataclasses import dataclass
 
@@ -72,7 +75,16 @@ def generate_config_file(info: ProjInfo):
 
 # TODOOO: Find servermanserver.py and start it
 def start(args):
-    pass
+    subprocess.Popen([args.server_path, args.directory], start_new_session=True)
+    print("Server has been started!")
+
+def stop(args):
+    print("Stopping the server!")
+    c = zerorpc.Client(passive_heartbeat=True)
+    c.connect("tcp://0.0.0.0:5999")
+    c.finish(args.timeout)
+    c.close()
+    sys.exit(0)
 
 def init(args):
     print("Trying to find project info...")
@@ -105,6 +117,15 @@ init_parser.add_argument("--lang", "-l", type=str, help="The language that the p
 init_parser.add_argument("--build_command", type=str, help="the bash command to build the project")
 init_parser.add_argument("--exe-path", type=str, help="The path to the executable")
 init_parser.set_defaults(func=init)
+
+start_parser = subs.add_parser('start', help="Start the server")
+start_parser.add_argument("--directory", type=str, default= HOME_DIR + "/.serverman")
+start_parser.add_argument("--server-path", type=str, default= HOME_DIR + "/.serverman/servermanserver.py")
+start_parser.set_defaults(func=start)
+
+stop_parser = subs.add_parser('stop', help="Stop the server")
+stop_parser.add_argument("--timeout", type=int, default=1)
+stop_parser.set_defaults(func=stop)
 
 args = parser.parse_args()
 args.func(args)

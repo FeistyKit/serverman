@@ -2,6 +2,7 @@
 
 # The server of the program
 
+from typing import Optional
 import zerorpc, argparse, os, json, pathlib, logging, yaml, shlex, subprocess, sys, time, signal
 from dataclasses import dataclass
 
@@ -26,6 +27,9 @@ def dexists(path: str) -> bool:
     return pathlib.Path(path).is_dir()
 
 class ServerMan():
+
+    server_obj: Optional[zerorpc.Server] = None
+    
     def __init__(self):
         pathlib.Path("data.json").touch()
         with open("data.json", "r") as f:
@@ -67,6 +71,7 @@ class ServerMan():
     # Accepts the time to wait for proteins
     # Sends sigterm to all programs until they all finish or time is up, then kills them all
     def finish(self, wait: int):
+        logging.info("Stopping server!")
         start_time = time.time()
         for _, prog in self.progs:
             prog.terminate()
@@ -74,13 +79,18 @@ class ServerMan():
             if all(r.poll() is not None for _, r in self.progs): # all have finished successfully
                 logging.info("Shut down successfully!")
                 logging.shutdown()
-                sys.exit(0)
+                return
             time.sleep(1)
         for name, unresponding_prog in self.progs:
             if unresponding_prog.poll() is not None:
                 logging.error("%s did not shutdown after %d seconds! Sending SIGKILL signal!", name, wait)
-                logging.shutdown()
-                sys.exit(0)
+                unresponding_prog.kill()
+        logging.shutdown()
+        if ServerMan.server_obj is not None:
+            ServerMan.server_obj.close()
+            sys.exit(0)
+        else:
+            sys.exit(1)
 
     def run_prog(self, name: str, path: str):
         if not dexists(path):
@@ -114,5 +124,6 @@ def prepare_logging():
 
 prepare_logging()
 s = zerorpc.Server(ServerMan())
+ServerMan.server_obj = s
 s.bind("tcp://0.0.0.0:5999")
 s.run()
