@@ -2,89 +2,103 @@
 
 
 from time import sleep
-import zerorpc, os, re, pathlib, sys, argparse, yaml, subprocess
+import os, re, pathlib, sys, argparse, yaml, subprocess
+import Pyro4
 
 from typing import Optional
 from dataclasses import dataclass
 
-HOME_DIR = os.environ['HOME']
+HOME_DIR = os.environ["HOME"]
+
+sys.excepthook = Pyro4.util.excepthook
 
 # If file exists
 def fexists(path: str) -> bool:
     return pathlib.Path(path).is_file()
+
 
 # if dir exists
 def dexists(path: str) -> bool:
     return pathlib.Path(path).is_dir()
 
 
-
-
 @dataclass
 class ProjInfo:
     build_command: Optional[str]
     proj_name: Optional[str]
-    execut_command: Optional[str] # path to the executable
+    execut_command: Optional[str]  # path to the executable
+
 
 # Find the command to run the project
 # Assumes that it is already in the project directory
 def find_proj_info(lang_type: Optional[str]) -> ProjInfo:
     # TODO: Add more languages
-    langs = {
-        'rust': 'Cargo.toml'
-    }
-    lang_files = {
-        'Cargo.toml': rust_proj_info
-    }
+    langs = {"rust": "Cargo.toml"}
+    lang_files = {"Cargo.toml": rust_proj_info}
     if lang_type is not None:
         a = langs.get(lang_type)
         if a is None:
-            return ProjInfo(build_command = None, proj_name = None, execut_command = None)
+            return ProjInfo(build_command=None, proj_name=None, execut_command=None)
         b = lang_files.get(a)
-        return b() if b is not None else ProjInfo(build_command = None, proj_name = None, execut_command = None)
+        return (
+            b()
+            if b is not None
+            else ProjInfo(build_command=None, proj_name=None, execut_command=None)
+        )
     for file, info in lang_files.items():
         if fexists(file):
             return info()
-    return ProjInfo(build_command = None, proj_name = None, execut_command = None)
+    return ProjInfo(build_command=None, proj_name=None, execut_command=None)
+
 
 def rust_proj_info() -> ProjInfo:
-    build_command = 'cargo build --release'
+    build_command = "cargo build --release"
     toml_contents = None
-    with open('Cargo.toml', 'r') as f:
+    with open("Cargo.toml", "r") as f:
         toml_contents = f.read()
     reg = re.compile(r"^name = \"(.*)\"", re.MULTILINE)
     result = reg.search(toml_contents)
     if result is None:
-        return ProjInfo(build_command = build_command, proj_name = None, execut_command = None)
+        return ProjInfo(
+            build_command=build_command, proj_name=None, execut_command=None
+        )
     proj_name = result.group(1)
     execut_command = "target/release/" + proj_name
-    return ProjInfo(build_command = build_command, proj_name = proj_name, execut_command = execut_command)
+    return ProjInfo(
+        build_command=build_command, proj_name=proj_name, execut_command=execut_command
+    )
+
 
 # detect the type of project and automatically make a config file for it
 # TODO: customizable default yaml path
 def generate_config_file(info: ProjInfo):
     with open(".serverman.yml", "w") as f:
-        f.write("# this file was generated automatically by serverman. <https://www.github.com/FeistyKit/serverman> Modify it as you wish!\n")
+        f.write(
+            "# this file was generated automatically by serverman. <https://www.github.com/FeistyKit/serverman> Modify it as you wish!\n"
+        )
         info_object = {
-            'proj_name': info.proj_name,
-            'exe-path': info.execut_command,
-            'build_command': info.build_command
+            "proj_name": info.proj_name,
+            "exe-path": info.execut_command,
+            "build_command": info.build_command,
         }
         f.write(yaml.dump(info_object))
         print(f"Successfully made config file for {info.proj_name}!")
+
 
 # TODOOO: Find servermanserver.py and start it
 def start(args):
     subprocess.Popen([args.server_path, args.directory], start_new_session=True)
     print("Server has been started!")
 
+
 def stop(args):
     print("Stopping the server!")
-    c = zerorpc.Client(passive_heartbeat=True)
-    c.connect("tcp://0.0.0.0:5999")
-    c.finish(args.timeout)
-    c.close()
-    sys.exit(0)
+    serv = Pyro4.Proxy("PYRONAME:serverman.server")
+    try:
+        serv.finish(args.timeout)
+    except Pyro4.errors.ConnectionClosedError:
+        sys.exit(0)
+
 
 def init(args):
     print("Trying to find project info...")
@@ -108,22 +122,31 @@ def init(args):
         info.proj_name = input("Please input it here:")
     generate_config_file(info)
 
+
 parser = argparse.ArgumentParser()
 subs = parser.add_subparsers()
 
-init_parser = subs.add_parser('init', help="Attempt to automatically generate a config file for the project.")
+init_parser = subs.add_parser(
+    "init", help="Attempt to automatically generate a config file for the project."
+)
 init_parser.add_argument("DIR", type=str)
-init_parser.add_argument("--lang", "-l", type=str, help="The language that the project is written in.")
-init_parser.add_argument("--build_command", type=str, help="the bash command to build the project")
+init_parser.add_argument(
+    "--lang", "-l", type=str, help="The language that the project is written in."
+)
+init_parser.add_argument(
+    "--build_command", type=str, help="the bash command to build the project"
+)
 init_parser.add_argument("--exe-path", type=str, help="The path to the executable")
 init_parser.set_defaults(func=init)
 
-start_parser = subs.add_parser('start', help="Start the server")
-start_parser.add_argument("--directory", type=str, default= HOME_DIR + "/.serverman")
-start_parser.add_argument("--server-path", type=str, default= HOME_DIR + "/.serverman/servermanserver.py")
+start_parser = subs.add_parser("start", help="Start the server")
+start_parser.add_argument("--directory", type=str, default=HOME_DIR + "/.serverman")
+start_parser.add_argument(
+    "--server-path", type=str, default=HOME_DIR + "/.serverman/servermanserver.py"
+)
 start_parser.set_defaults(func=start)
 
-stop_parser = subs.add_parser('stop', help="Stop the server")
+stop_parser = subs.add_parser("stop", help="Stop the server")
 stop_parser.add_argument("--timeout", type=int, default=1)
 stop_parser.set_defaults(func=stop)
 
