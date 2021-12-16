@@ -87,7 +87,7 @@ def generate_config_file(info: ProjInfo):
 
 # TODOOO: Find servermanserver.py and start it
 def start(args):
-    subprocess.Popen([args.server_path, args.directory], start_new_session=True)
+    subprocess.Popen([args.server_path, args.directory], start_new_session=True, stdout=subprocess.DEVNULL)
     print("Server has been started!")
 
 
@@ -142,7 +142,7 @@ init_parser.set_defaults(func=init)
 start_parser = subs.add_parser("start", help="Start the server")
 start_parser.add_argument("--directory", type=str, default=HOME_DIR + "/.serverman")
 start_parser.add_argument(
-    "--server-path", type=str, default=HOME_DIR + "/.serverman/servermanserver.py"
+    "--server-path", type=str, default=HOME_DIR + "/.serverman/servermanserver"
 )
 start_parser.set_defaults(func=start)
 

@@ -3,9 +3,9 @@
 # The server of the program
 
 from typing import Optional
-import argparse, os, json, pathlib, logging, yaml, shlex, subprocess, sys, time, signal, Pyro4, gevent
+import argparse, os, json, pathlib, logging, yaml, shlex, subprocess, time, Pyro4
 from Pyro4.core import Daemon
-from dataclasses import dataclass
+from datetime import datetime
 
 # PYTHON DEPENDENCIES: zerorpc, pyyaml
 # DEPENDS UPON: tar, gzip
@@ -130,11 +130,15 @@ class ServerMan:
 
 # Prepare the logging file
 def prepare_logging():
+    os.chdir(args.dir[0])
     if fexists("latest.log"):
-        tim = os.path.getmtime("latest.log")
-        subprocess.run(["tar", "-cvf", "--remove-files", f"{tim}.tar.gz", "latest.log"])
+        print("latest.log exists!")
+        tim = datetime.fromtimestamp(int(os.path.getmtime("latest.log")))
+        name = tim.strftime('%Y-%m-%d %I.%M.%S %p') + ".tar.gz"
+        subprocess.run(["tar", "-cvf", f"{name}", "latest.log", "--remove-files"])
         os.remove("latest.log")
     assert not fexists("latest.log"), "Logfile should not exist!"
+    pathlib.Path("latest.log").touch()
     logging.basicConfig(filename="latest.log", encoding="utf-8", level=logging.DEBUG)
 
 dae = Pyro4.Daemon()
@@ -142,4 +146,4 @@ dae = Pyro4.Daemon()
 ServerMan.daemon = dae
 
 prepare_logging()
-Pyro4.Daemon.serveSimple({ServerMan: "serverman.server"}, ns=True)
+Pyro4.Daemon.serveSimple({ServerMan: "serverman.server"}, ns=True, daemon=dae)
